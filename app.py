@@ -14,7 +14,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Load the pre-trained model
-MODEL_PATH = os.getenv("MODEL_PATH", "lung_disease_model.keras")
+MODEL_PATH = os.getenv("MODEL_PATH", "/app/lung_disease_model.keras")
 
 if not os.path.exists(MODEL_PATH):
     app.logger.error(f"Model file not found at {MODEL_PATH}. Check your .env configuration.")

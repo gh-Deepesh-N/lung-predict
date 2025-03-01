@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: lung-predict
-        image: dockerdeepesh7/lung-predict:v1.0  # ✅ Versioning best practice
+        image: dockerdeepesh7/lung-predict:v1.1  # ✅ Versioning best practice
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
