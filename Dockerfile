@@ -1,10 +1,10 @@
-# Use lightweight Python image
+# Use Python slim image
 FROM python:3.9-slim
 
-# Set working directory inside container
+# Set working directory
 WORKDIR /app
 
-# Copy app files
+# Copy all files (including the model)
 COPY . .
 
 # Install dependencies
@@ -13,5 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Expose Flask port
 EXPOSE 5000
 
-# Run Flask application
+# Set environment variables
+ENV MODEL_PATH="/app/lung_disease_model.keras"
+
+# Start the Flask app
 CMD ["python", "app.py"]

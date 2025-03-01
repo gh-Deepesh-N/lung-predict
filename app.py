@@ -13,107 +13,94 @@ load_dotenv()
 
 app = Flask(__name__)
 
-
 # Load the pre-trained model
-model = tf.keras.models.load_model(r"C:\Users\ndeep\Downloads\lung_disease_model.keras")
+MODEL_PATH = os.getenv("MODEL_PATH", "lung_disease_model.keras")
+
+if not os.path.exists(MODEL_PATH):
+    raise RuntimeError(f"Error: Model file not found at {MODEL_PATH}. Check your .env configuration.")
+
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+except Exception as e:
+    raise RuntimeError(f"Error loading model: {e}")
 
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-if not GEMINI_API_KEY:
-    print("Error: GEMINI_API_KEY is not set. Ensure it's defined in your .env file.")
-else:
-    print("Loaded API Key successfully.")
+
+if not GEMINI_API_KEY or not GEMINI_API_KEY.startswith("AIzaSy"):
+    raise RuntimeError("Error: GEMINI_API_KEY is invalid or missing. Check your .env file.")
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 @app.route('/about')
 def about():
-    return render_template('about.html')  # About page
+    return render_template('about.html')
 
 @app.route('/contact')
 def contact():
-    return render_template('contact.html')  # Contact page
+    return render_template('contact.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'}), 400
-
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-
     try:
-        # Convert the uploaded file to a BytesIO object and open it as an image
-        img = Image.open(BytesIO(file.read()))
-        img = img.resize((150, 150))  # Resize to the target size used in training
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image uploaded'}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        # Convert the image
+        img = Image.open(BytesIO(file.read())).convert("RGB")
+        img = img.resize((150, 150))
         img_array = img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array /= 255.0  # Normalize to match the model’s training scale
+        img_array /= 255.0  # Normalize
 
-        # Make a prediction
+        # Ensure model is loaded before making predictions
+        if model is None:
+            return jsonify({'error': 'Model is not loaded properly'}), 500
+
         prediction = model.predict(img_array)
         prediction_class = np.argmax(prediction, axis=1)[0]
-
-        # Define class names based on your model's output
         classes = ["Bacterial Pneumonia", "Corona Virus Disease", "Normal", "Tuberculosis", "Viral Pneumonia"]
-        result = classes[prediction_class]
 
-        return jsonify({'prediction': result})
+        return jsonify({'prediction': classes[prediction_class]})
+
     except Exception as e:
-        return jsonify({'error': 'Error processing the image', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to process image', 'details': str(e)}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_message = request.json.get('message')
-    if not user_message:
-        return jsonify({'error': 'Message is required'}), 400
-
-    # Prepare the payload
-    payload = {
-        "contents": [
-            {
-                "parts": [{"text": user_message}]
-            }
-        ]
-    }
-
-    # Include the API key in the URL (mimic the curl request)
-    api_url_with_key = f"{GEMINI_API_URL}?key={GEMINI_API_KEY}"
-
-    # Set up headers
-    headers = {
-        "Content-Type": "application/json"
-    }
-
     try:
-        # Make the request to the Gemini API
+        user_message = request.json.get('message')
+        if not user_message:
+            return jsonify({'error': 'Message is required'}), 400
+
+        payload = {"contents": [{"parts": [{"text": user_message}]}]}
+        headers = {"Content-Type": "application/json"}
+        api_url_with_key = f"{GEMINI_API_URL}?key={GEMINI_API_KEY}"
+
         response = requests.post(api_url_with_key, headers=headers, json=payload)
+        response_data = response.json()
 
-        if response.status_code == 200:
-            gemini_response = response.json()
-            raw_reply = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
+        if response.status_code != 200:
+            return jsonify({'error': 'Gemini API request failed', 'details': response.text}), response.status_code
 
-            # Format the response (e.g., replace newlines with <br> and add bullet points)
-            cleaned_reply = (
-                raw_reply
-                .replace("••", "")          # Remove unwanted symbols
-                .replace("*", "&bull;")    # Replace asterisks with bullet points
-                .replace("\n", "<br>")     # Replace newlines with HTML line breaks
-                .strip()                   # Remove extra spaces
-            )
+        # Extract chatbot response safely
+        raw_reply = response_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
 
-            return jsonify({'response': cleaned_reply})
-        else:
-            return jsonify({
-                'error': 'Failed to communicate with Gemini API',
-                'details': response.text
-            }), response.status_code
+        if not raw_reply:
+            return jsonify({'error': 'Invalid API response format', 'details': response_data}), 500
+
+        return jsonify({'response': raw_reply.strip()})
+
     except Exception as e:
-        return jsonify({'error': 'An unexpected error occurred', 'details': str(e)}), 500
-
+        return jsonify({'error': 'Chatbot request failed', 'details': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    PORT = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=PORT, debug=True)
