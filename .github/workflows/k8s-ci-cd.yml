@@ -19,28 +19,10 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest  # ✅ Explicitly install pytest
 
       - name: Run Unit Tests
         run: |
-          pytest
-
-      - name: Build and Push Container Image
-        run: |
-          export IMAGE=ghcr.io/${{ github.repository }}:latest
-          docker build -t $IMAGE .
-          docker push $IMAGE
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Kubernetes
-        run: |
-          sudo apt update && sudo apt install -y kubectl
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f k8s/secret.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          pytest  # ✅ Now pytest should work
