@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lung-predict
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lung-predict
+  template:
+    metadata:
+      labels:
+        app: lung-predict
+    spec:
+      containers:
+      - name: lung-predict
+        image: ghcr.io/your-github-username/lung-predict:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: lung-predict-secret
+              key: GEMINI_API_KEY
