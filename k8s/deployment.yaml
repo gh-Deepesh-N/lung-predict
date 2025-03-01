@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: lung-predict
-        image: ghcr.io/your-github-username/lung-predict:latest
+        image: ghcr.io/gh-Deepesh-N/lung-predict:latest
         ports:
         - containerPort: 5000
         env:
