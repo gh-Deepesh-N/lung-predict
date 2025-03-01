@@ -1,2 +1,6 @@
 # Ignore environment variables
 .env
+venv/
+*.pyd
+*.dll
+__pycache__/
