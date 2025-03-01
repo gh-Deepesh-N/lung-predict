@@ -17,19 +17,22 @@ app = Flask(__name__)
 MODEL_PATH = os.getenv("MODEL_PATH", "lung_disease_model.keras")
 
 if not os.path.exists(MODEL_PATH):
-    raise RuntimeError(f"Error: Model file not found at {MODEL_PATH}. Check your .env configuration.")
+    app.logger.error(f"Model file not found at {MODEL_PATH}. Check your .env configuration.")
+    MODEL_PATH = None
 
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
+    model = tf.keras.models.load_model(MODEL_PATH) if MODEL_PATH else None
 except Exception as e:
-    raise RuntimeError(f"Error loading model: {e}")
+    app.logger.error(f"Error loading model: {e}")
+    model = None
 
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
-if not GEMINI_API_KEY or not GEMINI_API_KEY.startswith("AIzaSy"):
-    raise RuntimeError("Error: GEMINI_API_KEY is invalid or missing. Check your .env file.")
+if not GEMINI_API_KEY:
+    app.logger.error("GEMINI_API_KEY is missing. Check your .env file.")
+    GEMINI_API_KEY = None
 
 @app.route('/')
 def index():
@@ -53,16 +56,15 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
 
+        if not model:
+            return jsonify({'error': 'Model is not loaded properly'}), 500
+
         # Convert the image
         img = Image.open(BytesIO(file.read())).convert("RGB")
         img = img.resize((150, 150))
         img_array = img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
         img_array /= 255.0  # Normalize
-
-        # Ensure model is loaded before making predictions
-        if model is None:
-            return jsonify({'error': 'Model is not loaded properly'}), 500
 
         prediction = model.predict(img_array)
         prediction_class = np.argmax(prediction, axis=1)[0]
@@ -90,7 +92,6 @@ def chat():
         if response.status_code != 200:
             return jsonify({'error': 'Gemini API request failed', 'details': response.text}), response.status_code
 
-        # Extract chatbot response safely
         raw_reply = response_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
 
         if not raw_reply:

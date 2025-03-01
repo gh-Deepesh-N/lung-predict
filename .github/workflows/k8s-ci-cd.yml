@@ -15,14 +15,13 @@ jobs:
       - name: Set Up Python Environment
         uses: actions/setup-python@v3
         with:
-          python-version: '3.9'
+          python-version: '3.x'
 
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest  # ✅ Explicitly install pytest
+          pip install pytest
 
       - name: Run Unit Tests
-        run: |
-          pytest  # ✅ Now pytest should work
+        run: pytest

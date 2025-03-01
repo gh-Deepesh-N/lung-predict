@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: lung-predict
-        image: dockerdeepesh7/lung-predict:latest  # ✅ Updated image
-        imagePullPolicy: Always  # ✅ Ensures Kubernetes always pulls the latest image
+        image: dockerdeepesh7/lung-predict:v1.0  # ✅ Versioning best practice
+        imagePullPolicy: Always
         ports:
         - containerPort: 5000
         env:
